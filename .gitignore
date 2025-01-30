@@ -8,3 +8,5 @@ Gemfile.lock
 *.swp
 examples/make_example/build
 examples/temp_sensor/build
+
+**/__pycache__/
