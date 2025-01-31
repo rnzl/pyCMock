@@ -1,24 +1,24 @@
 import re
 
 class CMockHeaderParser:
-    def __init__(self, cfg):
-        self.c_strippables = cfg.strippables
-        self.c_attr_noconst = list(set(cfg.attributes) - {'const'})
+    def __init__(self, config):
+        self.c_strippables = config.options['strippables']
+        self.c_attr_noconst = list(set(config.options['attributes']) - {'const'})
         self.c_attributes = ['const'] + self.c_attr_noconst
-        self.c_calling_conventions = list(set(cfg.c_calling_conventions))
-        self.treat_as_array = cfg.treat_as_array
-        self.treat_as_void = list(set(['void'] + cfg.treat_as_void))
+        self.c_calling_conventions = list(set(config.options['c_calling_conventions']))
+        self.treat_as_array = config.options['treat_as_array']
+        self.treat_as_void = list(set(['void'] + config.options['treat_as_void']))
         self.function_declaration_parse_base_match = r'([\w\s\*\(\),\[\]]*?\w[\w\s\*\(\),\[\]]*?)\(([\w\s\*\(\),\.\[\]+\-\/]*)\)'
         self.declaration_parse_matcher = re.compile(self.function_declaration_parse_base_match + r'$', re.MULTILINE)
-        self.standards = list(set(['int', 'short', 'char', 'long', 'unsigned', 'signed'] + list(cfg.treat_as.keys())))
-        self.array_size_name = cfg.array_size_name
-        self.array_size_type = list(set(['int', 'size_t'] + cfg.array_size_type))
-        self.when_no_prototypes = cfg.when_no_prototypes
+        self.standards = list(set(['int', 'short', 'char', 'long', 'unsigned', 'signed'] + list(config.options['treat_as'].keys())))
+        self.array_size_name = config.options['array_size_name']
+        self.array_size_type = list(set(['int', 'size_t'] + config.options['array_size_type']))
+        self.when_no_prototypes = config.options['when_no_prototypes']
         self.local_as_void = self.treat_as_void
-        self.verbosity = cfg.verbosity
-        self.treat_externs = cfg.treat_externs
-        self.treat_inlines = cfg.treat_inlines
-        self.inline_function_patterns = cfg.inline_function_patterns
+        self.verbosity = config.options['verbosity']
+        self.treat_externs = config.options['treat_externs']
+        self.treat_inlines = config.options['treat_inlines']
+        self.inline_function_patterns = config.options['inline_function_patterns']
         if self.treat_externs == 'include':
             self.c_strippables.append('extern')
         if self.treat_inlines == 'include':
@@ -37,7 +37,7 @@ class CMockHeaderParser:
         all_funcs = self.parse_functions(name, self.import_source(source, parse_project))
         all_funcs += self.parse_cpp_functions(self.import_source(source, parse_project, True))
         for decl in all_funcs:
-            func = self.parse_declaration(parse_project, *decl)
+            func = self.parse_declaration(parse_project, decl)
             if func['name'] not in function_names:
                 parse_project['functions'].append(func)
                 function_names.append(func['name'])
@@ -59,7 +59,7 @@ class CMockHeaderParser:
 
     def remove_nested_pairs_of_braces(self, source):
         if int(re.split(r'\.', re.__version__)[0]) > 1:
-            r = r'\{([^\{\}]*|\g<0>)*\}'
+            r = r'\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\}'
             source = re.sub(r, '{ }', source, flags=re.DOTALL)
         else:
             while re.search(r'\{[^\{\}]*\{[^\{\}]*\}[^\{\}]*\}', source, flags=re.DOTALL):
@@ -191,7 +191,7 @@ class CMockHeaderParser:
         source = re.sub(r'\s*\)\s*', ')', source)
         source = re.sub(r'\s+', ' ', source)
 
-        src_lines = list(set(source.split(r'\s*;\s*'))) if not cpp else source.split(r'\s*;\s*')
+        src_lines = list(set(re.split(r'\s*;\s*', source))) if not cpp else re.split(r'\s*;\s*', source)
         src_lines = [line for line in src_lines if line.strip()]
         src_lines = [line for line in src_lines if not re.search(r'[\w\s*]+\(+\s*\*[*\s]*[\w\s]+(?:\[[\w\s]*\]\s*)+\)+\s*\((?:[\w\s*]*,?)*\s*\)', line)]
 
@@ -354,102 +354,101 @@ class CMockHeaderParser:
         parse_project['typedefs'].append(f"typedef {match.group(1).strip()}(*{functype})({match.group(3)});")
         return f"{functype} {match.group(2).strip()}"
 
+    def parse_declaration(self, parse_project, declaration, namespace=None, classname=None):
+        if namespace is None:
+            namespace = []
+        decl = {}
+        decl['namespace'] = namespace
+        decl['class'] = classname
 
-def parse_declaration(self, parse_project, declaration, namespace=None, classname=None):
-    if namespace is None:
-        namespace = []
-    decl = {}
-    decl['namespace'] = namespace
-    decl['class'] = classname
+        regex_match = self.declaration_parse_matcher.match(declaration)
+        if regex_match is None:
+            raise Exception(f"Failed parsing function declaration: '{declaration}'")
 
-    regex_match = self.declaration_parse_matcher.match(declaration)
-    if regex_match is None:
-        raise Exception(f"Failed parsing function declaration: '{declaration}'")
+        # grab argument list
+        args = regex_match.group(2).strip()
 
-    # grab argument list
-    args = regex_match.group(2).strip()
+        # process function attributes, return type, and name
+        parsed = self.parse_type_and_name(regex_match.group(1))
 
-    # process function attributes, return type, and name
-    parsed = self.parse_type_and_name(regex_match.group(1))
+        # Record original name without scope prefix
+        decl['unscoped_name'] = parsed['name']
 
-    # Record original name without scope prefix
-    decl['unscoped_name'] = parsed['name']
-
-    # Prefix name with namespace scope (if any) and then class
-    decl['name'] = '_'.join(namespace)
-    if classname:
+        # Prefix name with namespace scope (if any) and then class
+        decl['name'] = '_'.join(namespace)
+        if classname:
+            if decl['name']:
+                decl['name'] += '_'
+            decl['name'] += classname
+        # Add original name to complete fully scoped name
         if decl['name']:
             decl['name'] += '_'
-        decl['name'] += classname
-    # Add original name to complete fully scoped name
-    if decl['name']:
-        decl['name'] += '_'
-    decl['name'] += decl['unscoped_name']
+        decl['name'] += decl['unscoped_name']
 
-    decl['modifier'] = parsed['modifier']
-    if 'c_calling_convention' in parsed:
-        decl['c_calling_convention'] = parsed['c_calling_convention']
+        decl['modifier'] = parsed['modifier']
+        if 'c_calling_convention' in parsed:
+            decl['c_calling_convention'] = parsed['c_calling_convention']
 
-    rettype = parsed['type']
-    if rettype.strip() in self.local_as_void:
-        rettype = 'void'
-    decl['return'] = {
-        'type': rettype,
-        'name': 'cmock_to_return',
-        'str': f"{rettype} cmock_to_return",
-        'void?': (rettype == 'void'),
-        'ptr?': parsed.get('ptr?', False),
-        'const?': parsed.get('const?', False),
-        'const_ptr?': parsed.get('const_ptr?', False)
-    }
+        rettype = parsed['type']
+        if rettype.strip() in self.local_as_void:
+            rettype = 'void'
+        decl['return'] = {
+            'type': rettype,
+            'name': 'cmock_to_return',
+            'str': f"{rettype} cmock_to_return",
+            'void?': (rettype == 'void'),
+            'ptr?': parsed.get('ptr?', False),
+            'const?': parsed.get('const?', False),
+            'const_ptr?': parsed.get('const_ptr?', False)
+        }
 
-    # remove default argument statements from mock definitions
-    args = re.sub(r'=\s*[a-zA-Z0-9_.]+\s*', ' ', args)
+        # remove default argument statements from mock definitions
+        args = re.sub(r'=\s*[a-zA-Z0-9_.]+\s*', ' ', args)
 
-    # check for var args
-    if '...' in args:
-        decl['var_arg'] = re.search(r'[\w\s]*\.\.\.', args).group().strip()
-        if ', ...' in args:
-            args = re.sub(r',[\w\s]*\.\.\.', '', args)
+        # check for var args
+        if '...' in args:
+            decl['var_arg'] = re.search(r'[\w\s]*\.\.\.', args).group().strip()
+            if ', ...' in args:
+                args = re.sub(r',[\w\s]*\.\.\.', '', args)
+            else:
+                args = 'void'
         else:
-            args = 'void'
-    else:
-        decl['var_arg'] = None
+            decl['var_arg'] = None
 
-    args = self.clean_args(args, parse_project)
-    decl['args_string'] = args
-    decl['args'] = self.parse_args(args)
-    decl['args_call'] = ', '.join([a['name'] for a in decl['args']])
-    decl['contains_ptr?'] = any(arg['ptr?'] for arg in decl['args'])
+        args = self.clean_args(args, parse_project)
+        decl['args_string'] = args
+        decl['args'] = self.parse_args(args)
+        decl['args_call'] = ', '.join([a['name'] for a in decl['args']])
+        decl['contains_ptr?'] = any(arg['ptr?'] for arg in decl['args'])
 
-    if not decl['return']['type'] or not decl['name'] or not decl['args']:
-        raise Exception(
-            f"Failed Parsing Declaration Prototype!\n"
-            f"  declaration: '{declaration}'\n"
-            f"  modifier: '{decl['modifier']}'\n"
-            f"  return: {self.prototype_inspect_hash(decl['return'])}\n"
-            f"  function: '{decl['name']}'\n"
-            f"  args: {self.prototype_inspect_array_of_hashes(decl['args'])}\n"
-        )
+        if not decl['return']['type'] or not decl['name'] or decl['args'] == None:
+            raise Exception(
+                f"Failed Parsing Declaration Prototype!\n"
+                f"  declaration: '{declaration}'\n"
+                f"  modifier: '{decl['modifier']}'\n"
+                f"  return: {self.prototype_inspect_hash(decl['return'])}\n"
+                f"  function: '{decl['name']}'\n"
+                f"  args: {self.prototype_inspect_array_of_hashes(decl['args'])}\n"
+            )
 
-    return decl
+        return decl
 
-def prototype_inspect_hash(self, hash):
-    pairs = []
-    for name, value in hash.items():
-        if isinstance(value, str):
-            pairs.append(f"{name} => \\{value}\\")
+    def prototype_inspect_hash(self, hash):
+        pairs = []
+        for name, value in hash.items():
+            if isinstance(value, str):
+                pairs.append(f"{name} => \\{value}\\")
+            else:
+                pairs.append(f"{name} => {value}")
+        
+        return f"{{{', '.join(pairs)}}}"
+
+    def prototype_inspect_array_of_hashes(self, array):
+        hashes = [self.prototype_inspect_hash(hash) for hash in array]
+        if len(array) == 0:
+            return '[]'
+        elif len(array) == 1:
+            return f"[{hashes[0]}]"
         else:
-            pairs.append(f"{name} => {value}")
-    
-    return f"{{{', '.join(pairs)}}}"
-
-def prototype_inspect_array_of_hashes(self, array):
-    hashes = [self.prototype_inspect_hash(hash) for hash in array]
-    if len(array) == 0:
-        return '[]'
-    elif len(array) == 1:
-        return f"[{hashes[0]}]"
-    else:
-        hashesString = '\n    '.join(hashes)
-        return f"[\n    {hashesString}\n  ]\n"
+            hashesString = '\n    '.join(hashes)
+            return f"[\n    {hashesString}\n  ]\n"

@@ -7,7 +7,7 @@
 
 import os
 import shutil
-
+import filecmp
 
 class CMockFileWriter:
     def __init__(self, config):
@@ -17,36 +17,41 @@ class CMockFileWriter:
         """
         Create the necessary subdirectories for mock generation.
         """
-        mock_path = self.config['mock_path']
+        mock_path = self.config.options['mock_path']
         os.makedirs(mock_path, exist_ok=True)
         if subdir:
             subdir_path = os.path.join(mock_path, subdir)
             os.makedirs(subdir_path, exist_ok=True)
 
-    def create_file(self, filename, subdir=None):
+    def create_file(self, filename, callback, subdir, *args, **kwargs):
         """
         Create a new file, writing its contents using a provided block (callback).
+        Uses a temp file to avoid unnecessary writes.
         """
-        if not callable(filename):
+        if not callable(callback):
             raise ValueError("A callable block must be provided to generate file contents.")
 
-        mock_path = self.config['mock_path']
+        mock_path = self.config.options['mock_path']
         subdir_path = os.path.join(mock_path, subdir) if subdir else mock_path
         os.makedirs(subdir_path, exist_ok=True)
 
-        temp_file = os.path.join(subdir_path, f"{filename}.new")
         final_file = os.path.join(subdir_path, filename)
+        temp_file = f"{final_file}.new"
 
         with open(temp_file, 'w') as file:
-            filename(file, filename)
+            callback(file, *args, **kwargs)
 
-        self._update_file(final_file, temp_file)
+        # Avoid unnecessary file updates
+        if os.path.exists(final_file) and filecmp.cmp(temp_file, final_file, shallow=False):
+            os.remove(temp_file)  # No change, discard temp file
+        else:
+            shutil.move(temp_file, final_file)  # Replace only if changed
 
-    def append_file(self, filename, subdir=None):
+    def append_file(self, filename, callback, subdir, *args, **kwargs):
         """
         Append data to an existing file, writing the content using a provided block (callback).
         """
-        if not callable(filename):
+        if not callable(callback):
             raise ValueError("A callable block must be provided to generate file contents.")
 
         skeleton_path = self.config['skeleton_path']
@@ -56,7 +61,7 @@ class CMockFileWriter:
         full_file = os.path.join(subdir_path, filename)
 
         with open(full_file, 'a') as file:
-            filename(file, filename)
+            callback(file, *args, **kwargs)
 
     def _update_file(self, dest, src):
         """

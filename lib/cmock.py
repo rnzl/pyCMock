@@ -22,11 +22,11 @@ class CMock:
         cm_config = CMockConfig(options)
         cm_unityhelper = CMockUnityHelperParser(cm_config)
         cm_writer = CMockFileWriter(cm_config)
-        cm_gen_utils = CMockGeneratorUtils(cm_config, helpers=cm_unityhelper)
+        cm_gen_utils = CMockGeneratorUtils(cm_config, helpers={'unity_helper': cm_unityhelper})
         cm_gen_plugins = CMockPluginManager(cm_config, cm_gen_utils)
         self.cm_parser = CMockHeaderParser(cm_config)
         self.cm_generator = CMockGenerator(cm_config, cm_writer, cm_gen_utils, cm_gen_plugins)
-        self.silent = cm_config.verbosity < 2
+        self.silent = cm_config.options['verbosity'] < 2
 
     def setup_mocks(self, files, folder=None):
         for src in files if isinstance(files, list) else [files]:
