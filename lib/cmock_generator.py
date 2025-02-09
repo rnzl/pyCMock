@@ -291,10 +291,10 @@ class CMockGenerator:
 
     def _create_mock_implementation(self, file, function):
         function_mod_and_rettype = f"{function['modifier']} {function['return']['type']}" if function['modifier'] else function['return']['type']
-        if 'c_calling_convention' in function.keys():
+        if 'c_calling_convention' in function.keys() and function['c_calling_convention'] != None:
             function_mod_and_rettype += f" {function['c_calling_convention']}"
         args_string = function['args_string']
-        if 'var_arg' in function.keys():
+        if 'var_arg' in function.keys() and function['var_arg'] != None:
             args_string += f", {function['var_arg']}"
 
         for ns in function['namespace']:
