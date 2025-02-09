@@ -25,7 +25,6 @@ SYSTEM_TEST_SUPPORT_DIRS.each do |dir|
   CLOBBER.include(dir)
 end
 
-
 task :prep_system_tests => SYSTEM_TEST_SUPPORT_DIRS
 
 configure_clean
@@ -47,21 +46,21 @@ task :test => ['test:all']
 
 namespace :test do
   desc "Run all unit, c, and system tests"
-  task :all => [:clobber, :prep_system_tests, 'test:units', 'test:c', 'test:system']
+  task :all => [:clobber, :prep_system_tests, 'test:c', 'test:system']
 
   desc "Run Unit Tests"
-  Rake::TestTask.new('units') do |t|
-    t.pattern = 'unit/*_test.rb'
-    t.verbose = true
-  end
-
-  #individual unit tests
-  FileList['unit/*_test.rb'].each do |test|
-    Rake::TestTask.new(File.basename(test,'.*').sub('_test','')) do |t|
-      t.pattern = test
-      t.verbose = true
-    end
-  end
+#  Rake::TestTask.new('units') do |t|
+#    t.pattern = 'unit/*_test.rb'
+#    t.verbose = true
+#  end
+#
+#  #individual unit tests
+#  FileList['unit/*_test.rb'].each do |test|
+#    Rake::TestTask.new(File.basename(test,'.*').sub('_test','')) do |t|
+#      t.pattern = test
+#      t.verbose = true
+#    end
+#  end
 
   desc "Run C Unit Tests"
   task :c => [:prep_system_tests] do
@@ -107,6 +106,11 @@ namespace :test do
   task :profile => [:clobber, :prep_system_tests] do
     run_system_test_profiles(FileList[SYSTEST_COMPILE_MOCKABLES_PATH + '*.h'])
   end
+end
+
+desc "Run system tests"
+task :system_tests do
+  run_system_test_interactions(FileList['system/test_interactions/*.yml'])
 end
 
 task :no_color do

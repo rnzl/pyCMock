@@ -195,34 +195,33 @@ module RakefileHelpers
   end
 
   def run_system_test_interactions(test_case_files)
-    load '../lib/cmock.rb'
 
     SystemTestGenerator.new.generate_files(test_case_files)
     test_files = FileList.new(SYSTEST_GENERATED_FILES_PATH + 'test*.c')
 
     load_configuration($cfg_file)
     $cfg['compiler']['defines']['items'] = [] if $cfg['compiler']['defines']['items'].nil?
-
+    
     include_dirs = get_local_include_dirs
-
+    
     # Build and execute each unit test
     test_files.each do |test|
-
+    
       obj_list = []
-
+    
       test_base    = File.basename(test, C_EXTENSION)
       cmock_config = test_base.gsub(/test_/, '') + '_cmock.yml'
-
+    
       report "Executing system tests in #{File.basename(test)}..."
-
-      # Detect dependencies and build required required modules
+    
+      # Detect dependencies and build required modules
       extract_headers(test).each do |header|
-
+    
         # Generate any needed mocks
         if header =~ /^mock_(.*)\.h/i
           module_name = $1
-          cmock = CMock.new(SYSTEST_GENERATED_FILES_PATH + cmock_config)
-          cmock.setup_mocks("#{$cfg['compiler']['source_path']}#{module_name}.h")
+          # Use the Python version of CMock
+          system("python3 ../lib/cmock.py -o#{SYSTEST_GENERATED_FILES_PATH + cmock_config} #{$cfg['compiler']['source_path']}#{module_name}.h")
         end
         # Compile corresponding source file if it exists
         src_file = find_source_file(header, include_dirs)
@@ -331,8 +330,6 @@ module RakefileHelpers
   end
 
   def run_system_test_compilations(mockables)
-    load '../lib/cmock.rb'
-
     load_configuration($cfg_file)
     $cfg['compiler']['defines']['items'] = [] if $cfg['compiler']['defines']['items'].nil?
 
@@ -342,15 +339,13 @@ module RakefileHelpers
     report "------------------------------------\n"
     mockables.each do |header|
       mock_filename = 'mock_' + File.basename(header).ext('.c')
-      CMock.new(SYSTEST_COMPILE_MOCKABLES_PATH + 'config.yml').setup_mocks(header)
+      system("python3 ../lib/cmock.py -o#{SYSTEST_COMPILE_MOCKABLES_PATH}config.yml #{header}")
       report "Compiling #{mock_filename}..."
       compile(SYSTEST_GENERATED_FILES_PATH + mock_filename)
     end
   end
 
   def run_system_test_profiles(mockables)
-    load '../lib/cmock.rb'
-
     load_configuration($cfg_file)
     $cfg['compiler']['defines']['items'] = [] if $cfg['compiler']['defines']['items'].nil?
 
@@ -360,9 +355,9 @@ module RakefileHelpers
     report "--------------------------\n"
     mockables.each do |header|
       mock_filename = 'mock_' + File.basename(header).ext('.c')
-      profile_this(mock_filename.gsub('.c','')) do
+      profile_this(mock_filename.gsub('.c', '')) do
         10.times do
-          CMock.new(SYSTEST_COMPILE_MOCKABLES_PATH + 'config.yml').setup_mocks(header)
+          system("python3 ../lib/cmock.py -o#{SYSTEST_COMPILE_MOCKABLES_PATH}config.yml #{header}")
         end
       end
       report "Compiling #{mock_filename}..."

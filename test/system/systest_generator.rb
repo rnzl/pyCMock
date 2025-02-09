@@ -149,9 +149,8 @@ class SystemTestGenerator
     source = yaml_hash[:systest][:skeleton]
     return if source.nil?
 
-    require 'cmock.rb'
-    cmock = CMock.new(GENERATED_PATH + namix + 'cmock' + YAML_EXTENSION)
-    cmock.setup_skeletons("#{$cfg['compiler']['source_path']}#{name}.h")
+    # Use the Python version of CMock
+    system("python3 ../lib/cmock.py -o#{GENERATED_PATH + namix + 'cmock' + YAML_EXTENSION} #{$cfg['compiler']['source_path']}#{name}.h --skeleton")
   end
 
   def write_header_file(filename, upcase_name, include_list=[])
