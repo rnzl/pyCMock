@@ -191,7 +191,11 @@ class CMockHeaderParser:
         source = re.sub(r'\s*\)\s*', ')', source)
         source = re.sub(r'\s+', ' ', source)
 
-        src_lines = list(set(re.split(r'\s*;\s*', source))) if not cpp else re.split(r'\s*;\s*', source)
+        if not cpp:
+            # Use list(dict.fromkeys()) to remove duplicates while preserving order instead of list(set(..))
+            src_lines = list(dict.fromkeys(re.split(r'\s*;\s*', source)))
+        else:
+            src_lines = re.split(r'\s*;\s*', source)
         src_lines = [line for line in src_lines if line.strip()]
         src_lines = [line for line in src_lines if not re.search(r'[\w\s*]+\(+\s*\*[*\s]*[\w\s]+(?:\[[\w\s]*\]\s*)+\)+\s*\((?:[\w\s*]*,?)*\s*\)', line)]
 
