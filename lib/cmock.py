@@ -85,7 +85,8 @@ if __name__ == "__main__":
     for arg in sys.argv[1:]:
         if arg.startswith('-o'):
             if len(arg) > 2:
-                options.update(CMockConfig.load_config_file_from_yaml(arg[2:]))
+                config = CMockConfig()
+                options.update(config.load_config_file_from_yaml(arg[2:]))
             else:
                 opt_flag = True
         elif arg == '--skeleton':
@@ -101,7 +102,8 @@ if __name__ == "__main__":
             options = option_maker(options, key.lstrip('--'), val)
         else:
             if opt_flag:
-                options.update(CMockConfig.load_config_file_from_yaml(arg))
+                config = CMockConfig()
+                options.update(config.load_config_file_from_yaml(arg))
                 opt_flag = False
             else:
                 filelist.append(arg)

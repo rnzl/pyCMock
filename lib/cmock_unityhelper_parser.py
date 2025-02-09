@@ -31,7 +31,7 @@ class CMockUnityHelperParser:
         if re.search(r'cmock_\w+_ptr\d+', ctype):
             return ['UNITY_TEST_ASSERT_EQUAL_PTR', '']
         
-        if not self.config.memcmp_if_unknown:
+        if not self.config.options['memcmp_if_unknown']:
             raise Exception(f"Don't know how to test {ctype} and memory tests are disabled!")
 
         return [self.fallback, '&'] if lookup.endswith('*') else [self.fallback, '']

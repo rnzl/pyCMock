@@ -85,9 +85,16 @@ class CMockGenerator:
         ]
 
     def _determine_mock_folder(self, folder):
+        mockfolder = ''
         if folder and self.subdir:
-            return os.path.join(self.subdir, folder)
-        return self.subdir or folder
+            mockfolder = os.path.join(self.subdir, folder)
+        elif self.subdir:
+            mockfolder = self.subdir
+        else:
+            mockfolder = folder
+        
+        return mockfolder
+
 
     def _import_unity_type_sanitizer(self, path):
         import importlib.util
@@ -103,8 +110,9 @@ class CMockGenerator:
         if self.include_inline == "include":
             self.file_writer.create_file(
                 mock_project["module_name"] + mock_project["module_ext"],
-                mock_project["folder"],
-                lambda f, _: f.write(mock_project["parsed_stuff"]["normalized_source"])
+                self._write_module_inline_content,
+                subdir=mock_project["folder"],
+                mock_project=mock_project
             )
 
         self.file_writer.create_file(
@@ -113,6 +121,10 @@ class CMockGenerator:
             subdir=mock_project["folder"],
             mock_project=mock_project
         )
+
+    def _write_module_inline_content(self, file, mock_project):
+
+        file.write(mock_project["parsed_stuff"]["normalized_source"])
 
     def _write_mock_header_content(self, file, mock_project):
         clean_name = mock_project["clean_name"]
@@ -212,7 +224,7 @@ class CMockGenerator:
 
     def _create_source_header_section(self, file, mock_project):
         
-        if mock_project["folder"]:
+        if "folder" in mock_project.keys() and mock_project["folder"] != None:
             header_file = os.path.join(
                 mock_project["folder"],
                 mock_project["module_name"] + mock_project["module_ext"]
@@ -338,6 +350,52 @@ class CMockGenerator:
         file.write(self.utils.code_add_argument_loader(function))
         file.write(self.plugins.run('mock_interfaces', function))
 
+    def _create_function_skeleton(self, file, function, existing):
+        # Prepare return value and arguments
+        function_mod_and_rettype = (f"{function['modifier']} " if function['modifier'] else '') + \
+                                function['return']['type'] + \
+                                (f" {function['c_calling_convention']}" if 'c_calling_convention' in function and function['c_calling_convention'] else '')
+        args_string = function['args_string']
+        if 'var_arg' in function and function['var_arg'] is not None:
+            args_string += f", {function['var_arg']}"
+
+        decl = f"{function_mod_and_rettype} {function['name']}({args_string})"
+
+        if decl in existing:
+            return
+
+        file.write(f"{decl}\n")
+        file.write("{\n")
+        file.write("  /*TODO: Implement Me!*/\n")
+        for arg in function['args']:
+            file.write(f"  (void){arg['name']};\n")
+        if not function['return']['void?']:
+            file.write(f"  return ({function['return']['type']})0;\n")
+        file.write("}\n\n")
+
     def _create_skeleton_source_file(self, mock_project):
-        # Implementation similar to mock source creation
-        pass
+        filename = f"{self.config.options['mock_path']}/{self.subdir + '/' if self.subdir else ''}{mock_project['module_name']}.c"
+        existing = ''
+        if os.path.exists(filename):
+            with open(filename, 'r') as f:
+                existing = f.read()
+
+        self.file_writer.create_file(
+            f"{mock_project['module_name']}.c",
+            self._write_skeleton_file,
+            subdir=self.subdir, 
+            mock_project=mock_project,
+            existing=existing
+            )
+
+    def _write_skeleton_file(self, file, mock_project, existing):
+        blank_project = mock_project.copy()
+        blank_project['parsed_stuff'] = {'functions': []}
+        if not existing:
+            self._create_source_header_section(file, blank_project)
+        else:
+            file.write(existing)
+            if existing[-1] != "\n":
+                file.write("\n")
+        for function in mock_project['parsed_stuff']['functions']:
+            self._create_function_skeleton(file, function, existing)
