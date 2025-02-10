@@ -9,6 +9,7 @@
 import os
 import sys
 import yaml
+import argparse
 from cmock_config import CMockConfig
 from cmock_unityhelper_parser import CMockUnityHelperParser
 from cmock_file_writer import CMockFileWriter
@@ -54,59 +55,41 @@ class CMock:
 
 
 def option_maker(options, key, val):
-    if options is None:
-        options = {}
-    if val.startswith(':'):
-        options[key] = val[1:]
-    elif ';' in val:
-        options[key] = val.split(';')
-    elif val.lower() == 'true':
-        options[key] = True
-    elif val.lower() == 'false':
-        options[key] = False
-    elif val.isdigit():
-        options[key] = int(val)
-    else:
-        options[key] = val
+    if key not in options:
+        options[key] = []
+    options[key].append(val)
     return options
 
 
 if __name__ == "__main__":
-    usage = f"usage: python {sys.argv[0]} (-oOptionsFile) File(s)ToMock"
+    parser = argparse.ArgumentParser(description="CMock - Automatic Mock Generation for C")
+    parser.add_argument('-o', '--options', help="Options file", required=False)
+    parser.add_argument('--skeleton', action='store_true', help="Generate skeletons")
+    parser.add_argument('--version', action='store_true', help="Show version")
+    parser.add_argument('--strippables', help="Strippables", required=False)
+    parser.add_argument('files', nargs='*', help="Files to mock")
 
-    if len(sys.argv) < 2:
-        print(usage)
-        sys.exit(1)
+    args = parser.parse_args()
+
+    print(args)
+
+    if args.version:
+        from cmock_version import CMOCK_VERSION
+        print(CMOCK_VERSION)
+        sys.exit(0)
 
     options = {}
-    filelist = []
-    opt_flag = False
+    if args.options:
+        config = CMockConfig()
+        options.update(config.load_config_file_from_yaml(args.options))
 
-    for arg in sys.argv[1:]:
-        if arg.startswith('-o'):
-            if len(arg) > 2:
-                config = CMockConfig()
-                options.update(config.load_config_file_from_yaml(arg[2:]))
-            else:
-                opt_flag = True
-        elif arg == '--skeleton':
-            options['skeleton'] = True
-        elif arg == '--version':
-            from cmock_version import CMOCK_VERSION
-            print(CMOCK_VERSION)
-            sys.exit(0)
-        elif arg.startswith('--strippables='):
-            options = option_maker(options, 'strippables', arg.split('=', 1)[1])
-        elif '=' in arg:
-            key, val = arg.split('=', 1)
-            options = option_maker(options, key.lstrip('--'), val)
-        else:
-            if opt_flag:
-                config = CMockConfig()
-                options.update(config.load_config_file_from_yaml(arg))
-                opt_flag = False
-            else:
-                filelist.append(arg)
+    if args.skeleton:
+        options['skeleton'] = True
+
+    if args.strippables:
+        options = option_maker(options, 'strippables', args.strippables)
+
+    filelist = args.files
 
     cmock = CMock(options)
     if options.get('skeleton'):

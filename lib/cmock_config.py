@@ -99,9 +99,23 @@ class CMockConfig:
         try:
             with open(yaml_filename, 'r') as file:
                 data = yaml.safe_load(file)
+                data = self.remove_colon_from_keys(data)
                 return data.get('cmock', {})
         except yaml.YAMLError as e:
             raise ValueError(f"Error parsing YAML file {yaml_filename}: {e}")
+        
+
+    def remove_colon_from_keys(self, data):
+        """
+        Recursively remove the colon from the beginning of keys in a dictionary.
+        """
+        for key, value in data.items():
+            if type(value) == dict:
+                data[key[1:]] = self.remove_colon_from_keys(data.pop(key))
+            else:
+                data[key[1:]] = data.pop(key)
+
+        return data
 
     def add_unity_helper_paths_to_post_headers(self):
         post_headers = self.options.get('includes_c_post_header', [])
