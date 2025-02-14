@@ -9,7 +9,7 @@ class CMockPluginManager:
         Initialize the plugin manager with configuration and utility instances.
         """
         self.plugins = []
-        plugins_to_load = ["expect"] + (config.options['plugins'] or [])
+        plugins_to_load = ["expect"] + (config.options[':plugins'] or [])
         plugins_to_load = list(dict.fromkeys(plugins_to_load))  # Remove duplicates while maintaining order
         for plugin in plugins_to_load:
             plugin_name = str(plugin)

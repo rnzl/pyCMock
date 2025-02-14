@@ -17,22 +17,22 @@ class CMockGenerator:
         self.utils = utils
         self.plugins = plugins
         self.config = config
-        self.prefix = config.options['mock_prefix']
-        self.suffix = config.options['mock_suffix']
-        self.weak = config.options['weak']
-        self.include_inline = config.options['treat_inlines']
-        self.ordered = config.options['enforce_strict_ordering']
-        self.framework = config.options['framework']
-        self.fail_on_unexpected_calls = config.options['fail_on_unexpected_calls']
-        self.exclude_setjmp_h = config.options['exclude_setjmp_h']
-        self.subdir = config.options['subdir']
+        self.prefix = config.options[':mock_prefix']
+        self.suffix = config.options[':mock_suffix']
+        self.weak = config.options[':weak']
+        self.include_inline = config.options[':treat_inlines']
+        self.ordered = config.options[':enforce_strict_ordering']
+        self.framework = config.options[':framework']
+        self.fail_on_unexpected_calls = config.options[':fail_on_unexpected_calls']
+        self.exclude_setjmp_h = config.options[':exclude_setjmp_h']
+        self.subdir = config.options[':subdir']
 
         self.includes_h_pre_orig_header = self._format_includes(
-            (config.options['includes'] or []) + (config.options['includes_h_pre_orig_header'] or [])
+            (config.options[':includes'] or []) + (config.options[':includes_h_pre_orig_header'] or [])
         )
-        self.includes_h_post_orig_header = self._format_includes(config.options['includes_h_post_orig_header'] or [])
-        self.includes_c_pre_header = self._format_includes(config.options['includes_c_pre_header'] or [])
-        self.includes_c_post_header = self._format_includes(config.options['includes_c_post_header'] or [])
+        self.includes_h_post_orig_header = self._format_includes(config.options[':includes_h_post_orig_header'] or [])
+        self.includes_c_pre_header = self._format_includes(config.options[':includes_c_pre_header'] or [])
+        self.includes_c_post_header = self._format_includes(config.options[':includes_c_post_header'] or [])
 
         here = Path(__file__).parent
         unity_paths = [
@@ -143,7 +143,7 @@ class CMockGenerator:
         file.write(f"#include \"{self.framework}.h\"\n")
 
         file.writelines([f"#include {inc}\n" for inc in self.includes_h_pre_orig_header])
-        file.write(f"{self.config.options['orig_header_include_fmt'] % orig_filename}\n")
+        file.write(f"{self.config.options[':orig_header_include_fmt'] % orig_filename}\n")
         file.writelines([f"#include {inc}\n" for inc in self.includes_h_post_orig_header])
 
         plugin_includes = self.plugins.run("include_files")
@@ -374,7 +374,7 @@ class CMockGenerator:
         file.write("}\n\n")
 
     def _create_skeleton_source_file(self, mock_project):
-        filename = f"{self.config.options['mock_path']}/{self.subdir + '/' if self.subdir else ''}{mock_project['module_name']}.c"
+        filename = f"{self.config.options[':mock_path']}/{self.subdir + '/' if self.subdir else ''}{mock_project['module_name']}.c"
         existing = ''
         if os.path.exists(filename):
             with open(filename, 'r') as f:

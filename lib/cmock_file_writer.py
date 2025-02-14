@@ -17,7 +17,7 @@ class CMockFileWriter:
         """
         Create the necessary subdirectories for mock generation.
         """
-        mock_path = self.config.options['mock_path']
+        mock_path = self.config.options[':mock_path']
         os.makedirs(mock_path, exist_ok=True)
         if subdir:
             subdir_path = os.path.join(mock_path, subdir)
@@ -31,7 +31,7 @@ class CMockFileWriter:
         if not callable(callback):
             raise ValueError("A callable block must be provided to generate file contents.")
 
-        mock_path = self.config.options['mock_path']
+        mock_path = self.config.options[':mock_path']
         subdir_path = os.path.join(mock_path, subdir) if subdir else mock_path
         os.makedirs(subdir_path, exist_ok=True)
 

@@ -27,7 +27,7 @@ class CMock:
         cm_gen_plugins = CMockPluginManager(cm_config, cm_gen_utils)
         self.cm_parser = CMockHeaderParser(cm_config)
         self.cm_generator = CMockGenerator(cm_config, cm_writer, cm_gen_utils, cm_gen_plugins)
-        self.silent = cm_config.options['verbosity'] < 2
+        self.silent = cm_config.options[':verbosity'] < 2
 
     def setup_mocks(self, files, folder=None):
         for src in files if isinstance(files, list) else [files]:
@@ -84,7 +84,7 @@ if __name__ == "__main__":
         options.update(config.load_config_file_from_yaml(args.options))
 
     if args.skeleton:
-        options['skeleton'] = True
+        options[':skeleton'] = True
 
     if args.strippables:
         options = option_maker(options, 'strippables', args.strippables)

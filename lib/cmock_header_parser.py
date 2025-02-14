@@ -2,23 +2,23 @@ import re
 
 class CMockHeaderParser:
     def __init__(self, config):
-        self.c_strippables = config.options['strippables']
-        self.c_attr_noconst = list(set(config.options['attributes']) - {'const'})
+        self.c_strippables = config.options[':strippables']
+        self.c_attr_noconst = list(set(config.options[':attributes']) - {'const'})
         self.c_attributes = ['const'] + self.c_attr_noconst
-        self.c_calling_conventions = list(set(config.options['c_calling_conventions']))
-        self.treat_as_array = config.options['treat_as_array']
-        self.treat_as_void = list(set(['void'] + config.options['treat_as_void']))
+        self.c_calling_conventions = list(set(config.options[':c_calling_conventions']))
+        self.treat_as_array = config.options[':treat_as_array']
+        self.treat_as_void = list(set(['void'] + config.options[':treat_as_void']))
         self.function_declaration_parse_base_match = r'([\w\s\*\(\),\[\]]*?\w[\w\s\*\(\),\[\]]*?)\(([\w\s\*\(\),\.\[\]+\-\/]*)\)'
         self.declaration_parse_matcher = re.compile(self.function_declaration_parse_base_match + r'$', re.MULTILINE)
-        self.standards = list(set(['int', 'short', 'char', 'long', 'unsigned', 'signed'] + list(config.options['treat_as'].keys())))
-        self.array_size_name = config.options['array_size_name']
-        self.array_size_type = list(set(['int', 'size_t'] + config.options['array_size_type']))
-        self.when_no_prototypes = config.options['when_no_prototypes']
+        self.standards = list(set(['int', 'short', 'char', 'long', 'unsigned', 'signed'] + list(config.options[':treat_as'].keys())))
+        self.array_size_name = config.options[':array_size_name']
+        self.array_size_type = list(set(['int', 'size_t'] + config.options[':array_size_type']))
+        self.when_no_prototypes = config.options[':when_no_prototypes']
         self.local_as_void = self.treat_as_void
-        self.verbosity = config.options['verbosity']
-        self.treat_externs = config.options['treat_externs']
-        self.treat_inlines = config.options['treat_inlines']
-        self.inline_function_patterns = config.options['inline_function_patterns']
+        self.verbosity = config.options[':verbosity']
+        self.treat_externs = config.options[':treat_externs']
+        self.treat_inlines = config.options[':treat_inlines']
+        self.inline_function_patterns = config.options[':inline_function_patterns']
         if self.treat_externs == 'include':
             self.c_strippables.append('extern')
         if self.treat_inlines == 'include':

@@ -4,13 +4,13 @@ class CMockGeneratorPluginExpect:
     """
     def __init__(self, config, utils):
         self.config = config
-        self.ptr_handling = self.config.options['when_ptr']
-        self.ordered = self.config.options['enforce_strict_ordering']
+        self.ptr_handling = self.config.options[':when_ptr']
+        self.ordered = self.config.options[':enforce_strict_ordering']
         self.utils = utils
         self.unity_helper = self.utils.helpers['unity_helper']
         self.priority = 5
 
-        if self.config.options['plugins'] and ":expect_any_args" in self.config.options['plugins']:
+        if self.config.options[':plugins'] and ":expect_any_args" in self.config.options[':plugins']:
             self.mock_implementation = self.mock_implementation_might_check_args
         else:
             self.mock_implementation = self.mock_implementation_always_check_args

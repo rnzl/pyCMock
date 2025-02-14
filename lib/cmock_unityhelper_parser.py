@@ -10,7 +10,7 @@ import re
 class CMockUnityHelperParser:
     def __init__(self, config):
         self.config = config
-        self.fallback = 'UNITY_TEST_ASSERT_EQUAL_MEMORY_ARRAY' if 'array' in self.config.options['plugins'] else 'UNITY_TEST_ASSERT_EQUAL_MEMORY'
+        self.fallback = 'UNITY_TEST_ASSERT_EQUAL_MEMORY_ARRAY' if 'array' in self.config.options[':plugins'] else 'UNITY_TEST_ASSERT_EQUAL_MEMORY'
         self.c_types = self.map_c_types()
         self.c_types.update(self.import_source())
 
@@ -31,14 +31,14 @@ class CMockUnityHelperParser:
         if re.search(r'cmock_\w+_ptr\d+', ctype):
             return ['UNITY_TEST_ASSERT_EQUAL_PTR', '']
         
-        if not self.config.options['memcmp_if_unknown']:
+        if not self.config.options[':memcmp_if_unknown']:
             raise Exception(f"Don't know how to test {ctype} and memory tests are disabled!")
 
         return [self.fallback, '&'] if lookup.endswith('*') else [self.fallback, '']
 
     def map_c_types(self):
         c_types = {}
-        for ctype, expecttype in self.config.options['treat_as'].items():
+        for ctype, expecttype in self.config.options[':treat_as'].items():
             if isinstance(ctype, str):
                 c_type = ctype.replace(' ', '_')
                 if '*' in expecttype:
