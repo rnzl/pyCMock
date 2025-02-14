@@ -6,7 +6,7 @@ class CMockGeneratorPluginCexception:
         self.config = config
         self.utils = utils
         self.priority = 7
-        if self.config.exclude_setjmp_h:
+        if self.config.options[':exclude_setjmp_h']:
             raise Exception("Error: cexception is not supported without setjmp support")
 
     def include_files(self):

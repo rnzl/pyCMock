@@ -43,7 +43,6 @@ class CMockGenerator:
         ]
 
         for path in unity_paths:
-            print(f"{path}")
             if path.exists():
                 self._import_unity_type_sanitizer(path)
                 break

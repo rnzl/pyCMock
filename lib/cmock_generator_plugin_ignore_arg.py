@@ -32,10 +32,10 @@ class CMockGeneratorPluginIgnoreArg:
         """
         Generate the mock interfaces for ignoring arguments.
         """
-        lines = []
+        lines = ""
         func_name = function["name"]
         for arg in function["args"]:
-            lines.append(
+            lines += (
                 f"void {func_name}_CMockIgnoreArg_{arg['name']}(UNITY_LINE_TYPE cmock_line)\n"
                 f"{{\n"
                 f"  CMOCK_{func_name}_CALL_INSTANCE* cmock_call_instance = "

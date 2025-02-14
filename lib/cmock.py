@@ -92,7 +92,7 @@ if __name__ == "__main__":
     filelist = args.files
 
     cmock = CMock(options)
-    if options.get('skeleton'):
+    if options.get(':skeleton'):
         cmock.setup_skeletons(filelist)
     else:
         cmock.setup_mocks(filelist)

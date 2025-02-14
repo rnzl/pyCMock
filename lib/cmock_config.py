@@ -66,23 +66,23 @@ class CMockConfig:
             raise ValueError("Options should be a filename (str) or a dictionary (dict)")
 
         # Validate certain options are lists
-        for opt in ['plugins', 'attributes', 'treat_as_void']:
+        for opt in [':plugins', ':attributes', ':treat_as_void']:
             if not isinstance(self.options.get(opt), list):
                 self.options[opt] = []
-                if self.options.get('verbosity', 2) > 0:
+                if self.options.get(':verbosity', 2) > 0:
                     print(f"WARNING: '{opt}' should be a list.")
 
-        for opt in ['includes', 'includes_h_pre_orig_header', 'includes_h_post_orig_header',
-                    'includes_c_pre_header', 'includes_c_post_header']:
+        for opt in [':includes', ':includes_h_pre_orig_header', ':includes_h_post_orig_header',
+                    ':includes_c_pre_header', ':includes_c_post_header']:
             if self.options.get(opt) is not None and not isinstance(self.options[opt], list):
                 self.options[opt] = []
-                if self.options.get('verbosity', 2) > 0:
+                if self.options.get(':verbosity', 2) > 0:
                     print(f"WARNING: '{opt}' should be a list.")
 
         self.options[':unity_helper_path'] = (
             [self.options[':unity_helper_path']]
-            if isinstance(self.options.get('unity_helper_path'), str)
-            else self.options.get('unity_helper_path', [])
+            if isinstance(self.options.get(':unity_helper_path'), str)
+            else self.options.get(':unity_helper_path', [])
         )
 
         if self.options[':unity_helper_path']:
@@ -105,7 +105,7 @@ class CMockConfig:
         return data.get(':cmock', {})
 
     def add_unity_helper_paths_to_post_headers(self):
-        post_headers = self.options.get('includes_c_post_header', [])
+        post_headers = self.options.get(':includes_c_post_header', [])
         helper_paths = []
         for path in self.options[':unity_helper_path']:
             try:

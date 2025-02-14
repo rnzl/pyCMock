@@ -6,7 +6,7 @@ class CMockGeneratorPluginCallback:
         self.config = config
         self.utils = utils
         self.priority = 6
-        self.include_count = config.callback_include_count
+        self.include_count = config.options[':callback_include_count']
 
     def instance_structure(self, function):
         """
@@ -25,7 +25,7 @@ class CMockGeneratorPluginCallback:
         """
         func_name = function["name"]
         return_type = function["return"]["type"]
-        action = "AddCallback" if self.config.callback_after_arg_check else "Stub"
+        action = "AddCallback" if self.config.options[':callback_after_arg_check'] else "Stub"
         style = (1 if self.include_count else 0) | (2 if function["args"] else 0)
         styles = [
             "void",
@@ -100,7 +100,7 @@ class CMockGeneratorPluginCallback:
         Generate the interface for setting up and stubbing the callback.
         """
         func_name = function["name"]
-        has_ignore = ":ignore" in self.config.plugins
+        has_ignore = ":ignore" in self.config.options[':plugins']
         lines = []
         lines.append(f"void {func_name}_AddCallback(CMOCK_{func_name}_CALLBACK Callback)\n{{\n")
         if has_ignore:

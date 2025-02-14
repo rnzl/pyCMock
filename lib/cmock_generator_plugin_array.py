@@ -4,8 +4,8 @@ class CMockGeneratorPluginArray:
     """
     def __init__(self, config, utils):
         self.config = config
-        self.ptr_handling = config.when_ptr
-        self.ordered = config.enforce_strict_ordering
+        self.ptr_handling = config.options[':when_ptr']
+        self.ordered = config.options[':enforce_strict_ordering']
         self.utils = utils
         self.unity_helper = utils.helpers.get("unity_helper")
         self.priority = 8
@@ -25,7 +25,7 @@ class CMockGeneratorPluginArray:
         Generate mock function declarations.
         """
         if not function.get("contains_ptr?"):
-            return None
+            return ""
 
         args_call_i = ", ".join(
             f"{arg['name']}, {arg['name']}_Depth" if arg.get("ptr?") else arg["name"]
@@ -65,7 +65,7 @@ class CMockGeneratorPluginArray:
         Generate the mock interface implementation.
         """
         if not function.get("contains_ptr?"):
-            return None
+            return ""
 
         func_name = function["name"]
         args_string = ", ".join(

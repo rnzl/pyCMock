@@ -9,10 +9,10 @@ class CMockPluginManager:
         Initialize the plugin manager with configuration and utility instances.
         """
         self.plugins = []
-        plugins_to_load = ["expect"] + (config.options[':plugins'] or [])
+        plugins_to_load = [':expect'] + (config.options[':plugins'] or [])
         plugins_to_load = list(dict.fromkeys(plugins_to_load))  # Remove duplicates while maintaining order
         for plugin in plugins_to_load:
-            plugin_name = str(plugin)
+            plugin_name = str(plugin[1:])   # Remove leading colon
             object_name = f"CMockGeneratorPlugin{self.camelize(plugin_name)}"
             self._mutex.acquire()
             try:
@@ -25,11 +25,12 @@ class CMockPluginManager:
         """
         Execute the specified method on all loaded plugins.
         """
-        return "".join(
-            getattr(plugin, method)(*args, **kwargs)
-            for plugin in self.plugins
-            if hasattr(plugin, method)
-        )
+        data = ""
+        for plugin in self.plugins:
+            if hasattr(plugin, method):
+                data += getattr(plugin, method)(*args, **kwargs)
+
+        return data
 
 
     @staticmethod
@@ -60,19 +61,16 @@ class CMockPluginManager:
             module_name = file_name.stem
 
             # Debug print to check file path and module name
-            print(f"Loading plugin: {plugin_name}, file: {file_name}, module: {module_name}")
+            # print(f"Loading plugin: {plugin_name}, file: {file_name}, module: {module_name}")
 
             # Dynamically import module
             plugin_module = importlib.import_module(module_name)
 
             # Debug print to check if module is imported
-            print(f"Module {module_name} imported successfully")
+            #print(f"Module {module_name} imported successfully")
 
             # Dynamically get the class from the module
             plugin_class = getattr(plugin_module, object_name)
-
-            # Debug print to check if class is found
-            print(f"Class {object_name} found in module {module_name}")
 
             # Create an instance of the plugin and add it to the plugins list
             self.plugins.append(plugin_class(config, utils))
