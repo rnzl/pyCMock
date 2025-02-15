@@ -290,7 +290,7 @@ class CMockHeaderParser:
             type_array.remove('const')
 
         arg_info['modifier'] = ' '.join(attr_array)
-        arg_info['type'] = ' '.join(type_array).replace(r'\s+\*', '*')
+        arg_info['type'] = re.sub(r'\s+\*', '*', ' '.join(type_array))
         return arg_info
 
     def parse_args(self, arg_list):

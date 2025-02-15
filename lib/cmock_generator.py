@@ -240,7 +240,9 @@ class CMockGenerator:
         file.write("#include \"cmock.h\"\n")
         for inc in self.includes_c_pre_header:
             file.write(f"#include {inc}\n")
-        file.write(f"#include \"Mock{header_file}\"\n")
+        
+        file.write(f"#include \"{self.prefix}{header_file}\"\n")
+        
         for inc in self.includes_c_post_header:
             file.write(f"#include {inc}\n")
         file.write("\n")
