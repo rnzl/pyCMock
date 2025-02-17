@@ -19,9 +19,9 @@ class CMockHeaderParser:
         self.treat_externs = config.options[':treat_externs']
         self.treat_inlines = config.options[':treat_inlines']
         self.inline_function_patterns = config.options[':inline_function_patterns']
-        if self.treat_externs == 'include':
+        if self.treat_externs == ':include':
             self.c_strippables.append('extern')
-        if self.treat_inlines == 'include':
+        if self.treat_inlines == ':include':
             self.c_strippables.append('inline')
 
     def parse(self, name, source):
@@ -199,10 +199,10 @@ class CMockHeaderParser:
         src_lines = [line for line in src_lines if line.strip()]
         src_lines = [line for line in src_lines if not re.search(r'[\w\s*]+\(+\s*\*[*\s]*[\w\s]+(?:\[[\w\s]*\]\s*)+\)+\s*\((?:[\w\s*]*,?)*\s*\)', line)]
 
-        if self.treat_externs != 'include':
+        if self.treat_externs != ':include':
             src_lines = [line for line in src_lines if not re.search(r'(?:^|\s+)(?:extern)\s+', line)]
 
-        if self.treat_inlines != 'include':
+        if self.treat_inlines != ':include':
             src_lines = [line for line in src_lines if not re.search(r'(?:^|\s+)(?:inline)\s+', line)]
 
         src_lines = [line for line in src_lines if line]

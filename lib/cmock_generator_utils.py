@@ -10,13 +10,13 @@ class CMockGeneratorUtils:
         self.config = config
         self.ptr_handling = self.config.options[':when_ptr']
         self.ordered = self.config.options[':enforce_strict_ordering']
-        self.arrays = 'array' in self.config.options[':plugins']
-        self.cexception = 'cexception' in self.config.options[':plugins']
-        self.expect_any = 'expect_any_args' in self.config.options[':plugins']
-        self.return_thru_ptr = 'return_thru_ptr' in self.config.options[':plugins']
-        self.ignore_arg = 'ignore_arg' in self.config.options[':plugins']
-        self.ignore = 'ignore' in self.config.options[':plugins']
-        self.ignore_stateless = 'ignore_stateless' in self.config.options[':plugins']
+        self.arrays = ':array' in self.config.options[':plugins']
+        self.cexception = ':cexception' in self.config.options[':plugins']
+        self.expect_any = ':expect_any_args' in self.config.options[':plugins']
+        self.return_thru_ptr = ':return_thru_ptr' in self.config.options[':plugins']
+        self.ignore_arg = ':ignore_arg' in self.config.options[':plugins']
+        self.ignore = ':ignore' in self.config.options[':plugins']
+        self.ignore_stateless = ':ignore_stateless' in self.config.options[':plugins']
         self.treat_as = self.config.options[':treat_as']
         self.helpers = helpers
 
@@ -30,11 +30,11 @@ class CMockGeneratorUtils:
 
     def code_verify_an_arg_expectation(self, function, arg):
         if self.arrays:
-            if self.ptr_handling == 'smart':
+            if self.ptr_handling == ':smart':
                 return self.code_verify_an_arg_expectation_with_smart_arrays(function, arg)
-            elif self.ptr_handling == 'compare_data':
+            elif self.ptr_handling == ':compare_data':
                 return self.code_verify_an_arg_expectation_with_normal_arrays(function, arg)
-            elif self.ptr_handling == 'compare_ptr':
+            elif self.ptr_handling == ':compare_ptr':
                 raise Exception("ERROR: the array plugin doesn't enjoy working with :compare_ptr only. Disable one option.")
         else:
             return self.code_verify_an_arg_expectation_with_no_arrays(function, arg)

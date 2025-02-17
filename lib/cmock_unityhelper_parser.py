@@ -10,7 +10,7 @@ import re
 class CMockUnityHelperParser:
     def __init__(self, config):
         self.config = config
-        self.fallback = 'UNITY_TEST_ASSERT_EQUAL_MEMORY_ARRAY' if 'array' in self.config.options[':plugins'] else 'UNITY_TEST_ASSERT_EQUAL_MEMORY'
+        self.fallback = 'UNITY_TEST_ASSERT_EQUAL_MEMORY_ARRAY' if ':array' in self.config.options[':plugins'] else 'UNITY_TEST_ASSERT_EQUAL_MEMORY'
         self.c_types = self.map_c_types()
         self.c_types.update(self.import_source())
 
