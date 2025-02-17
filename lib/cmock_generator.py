@@ -337,7 +337,7 @@ class CMockGenerator:
             file.write("  if (cmock_call_instance->CallOrder < GlobalVerifyOrder)\n")
             file.write("    UNITY_TEST_FAIL(cmock_line, CMockStringCalledLate);\n")
         file.write(self.plugins.run('mock_implementation', function))
-        file.write("  UNITY_CLR_DETAILS();\n")
+        file.write("\n  UNITY_CLR_DETAILS();\n")
         if not function['return']['void?']:
             file.write("  return cmock_call_instance->ReturnVal;\n")
         file.write("}\n")

@@ -22,7 +22,7 @@ class CMockGeneratorPluginReturnThruPtr:
             if self.utils.ptr_or_str(arg['type']) and not arg.get('const?', False):
                 lines.append(f"  char ReturnThruPtr_{arg['name']}_Used;")
                 lines.append(f"  {self.ptr_to_const(arg['type'])} ReturnThruPtr_{arg['name']}_Val;")
-                lines.append(f"  size_t ReturnThruPtr_{arg['name']}_Size;")
+                lines.append(f"  size_t ReturnThruPtr_{arg['name']}_Size;\n")
         return "\n".join(lines)
 
     def void_pointer(self, type_):
@@ -60,7 +60,7 @@ class CMockGeneratorPluginReturnThruPtr:
                 )
                 lines.append(
                     f"#define {func_name}_ReturnMemThruPtr_{arg_name}({arg_name}, cmock_size) "
-                    f"{func_name}_CMockReturnMemThruPtr_{arg_name}(__LINE__, {arg_name}, cmock_size)"
+                    f"{func_name}_CMockReturnMemThruPtr_{arg_name}(__LINE__, {arg_name}, (cmock_size))"
                 )
                 lines.append(
                     f"void {func_name}_CMockReturnMemThruPtr_{arg_name}(UNITY_LINE_TYPE cmock_line, "
@@ -92,7 +92,7 @@ class CMockGeneratorPluginReturnThruPtr:
                 lines.append(f"  cmock_call_instance->ReturnThruPtr_{arg_name}_Used = 1;")
                 lines.append(f"  cmock_call_instance->ReturnThruPtr_{arg_name}_Val = {arg_name};")
                 lines.append(f"  cmock_call_instance->ReturnThruPtr_{arg_name}_Size = cmock_size;")
-                lines.append("}\n")
+                lines.append("}\n\n")
         return "\n".join(lines)
 
     def mock_implementation(self, function):
@@ -107,9 +107,7 @@ class CMockGeneratorPluginReturnThruPtr:
                 lines.append(f"  if (cmock_call_instance->ReturnThruPtr_{arg_name}_Used)")
                 lines.append("  {")
                 lines.append(f"    UNITY_TEST_ASSERT_NOT_NULL({arg_name}, cmock_line, CMockStringPtrIsNULL);")
-                lines.append(
-                    f"    memcpy((void*){arg_name}, (const void*)cmock_call_instance->ReturnThruPtr_{arg_name}_Val, "
-                    f"cmock_call_instance->ReturnThruPtr_{arg_name}_Size);"
-                )
+                lines.append(f"    memcpy((void*){arg_name}, (const void*)cmock_call_instance->ReturnThruPtr_{arg_name}_Val, ")
+                lines.append(f"      cmock_call_instance->ReturnThruPtr_{arg_name}_Size);")
                 lines.append("  }")
         return "\n".join(lines)

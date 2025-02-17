@@ -22,7 +22,7 @@ class CMockGeneratorPluginIgnoreArg:
         lines = ""
         for arg in function["args"]:
             lines += (
-                f"#define {function['name']}_IgnoreArg_{arg['name']}() "
+                f"\n#define {function['name']}_IgnoreArg_{arg['name']}() "
                 f"{function['name']}_CMockIgnoreArg_{arg['name']}(__LINE__)\n"
                 f"void {function['name']}_CMockIgnoreArg_{arg['name']}(UNITY_LINE_TYPE cmock_line);\n"
             )
