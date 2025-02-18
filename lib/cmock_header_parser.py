@@ -52,9 +52,12 @@ class CMockHeaderParser:
         }
 
     def remove_comments_from_source(self, source):
-        source = re.sub(r'(?<!\*)\/\/(?:.+\/\*|\*(?:$|[^\/])).*$', '', source)
-        source = re.sub(r'\/\*.*?\*\/', '', source, flags=re.DOTALL)
-        source = re.sub(r'\/\/.*$', '', source)
+        # Remove line comments that comment out the start of blocks
+        source = re.sub(r'(?<!\*)\/\/(?:.+\/\*|\*(?:$|[^\/])).*$', '', source, flags=re.MULTILINE)
+        # Remove block comments (including nested ones)
+        source = re.sub(r'/\*.*?\*/', '', source, flags=re.DOTALL)
+        # Remove line comments
+        source = re.sub(r'//.*$', '', source, flags=re.MULTILINE)
         return source
 
     def remove_nested_pairs_of_braces(self, source):
@@ -147,37 +150,71 @@ class CMockHeaderParser:
         return source
 
     def import_source(self, source, parse_project, cpp=False):
+        # let's clean up the encoding in case they've done anything weird with the characters we might find
         source = source.encode('ISO-8859-1').decode('utf-8', errors='replace')
 
+        # void must be void for cmock _ExpectAndReturn calls to process properly, not some weird typedef which equates to void
+        # to a certain extent, this action assumes we're chewing on pre-processed header files, otherwise we'll most likely just get stuff from @treat_as_void
         self.local_as_void = self.treat_as_void
         void_types = re.findall(r'typedef\s+(?:\(\s*)?void(?:\s*\))?\s+(\w+)\s*;', source)
         if void_types:
             self.local_as_void += list(set(void_types))
 
+        # If user wants to mock inline functions,
+        # remove the (user specific) inline keywords before removing anything else to avoid missing an inline function
         if self.treat_inlines == 'include':
             for user_format_string in self.inline_function_patterns:
                 source = re.sub(user_format_string, '', source)
 
+        # smush multiline macros into single line (checking for continuation character at end of line '\')
         source = re.sub(r'\s*\\\s*', ' ', source, flags=re.DOTALL)
         source = self.remove_comments_from_source(source)
+
+        # remove assembler pragma sections
         source = re.sub(r'^\s*#\s*pragma\s+asm\s+.*?#\s*pragma\s+endasm', '', source, flags=re.DOTALL)
+
+        # remove gcc's __attribute__ tags
         source = re.sub(r'__attribute(?:__)?\s*\(\(+.*\)\)+', '', source)
+
+        # remove preprocessor statements and extern "C"
         source = re.sub(r'extern\s+"C"\s*\{', '', source)
         source = re.sub(r'^\s*#.*', '', source, flags=re.MULTILINE)
+
+        # enums, unions, structs, and typedefs can all contain things (e.g. function pointers) that parse like function prototypes, so yank them
+        # forward declared structs are removed before struct definitions so they don't mess up real thing later. we leave structs keywords in function prototypes
         source = re.sub(r'^[\w\s]*struct[^;{}()]+;', '', source, flags=re.MULTILINE)
+
+         # remove struct, union, and enum definitions and typedefs with braces
         source = re.sub(r'^[\w\s]*(enum|union|struct|typedef)[\w\s]*\{[^}]+\}[\w\s*,]*;', '', source, flags=re.MULTILINE)
+
+        # remove problem keywords
         source = re.sub(r'(\W)(?:register|auto|restrict)(\W)', r'\1\2', source)
         if not cpp:
             source = re.sub(r'(\W)(?:static)(\W)', r'\1\2', source)
 
+        # remove default value statements from argument lists
         source = re.sub(r'\s*=\s*["\'a-zA-Z0-9_.]+\s*', '', source)
+
+        # remove typedef statements
         source = re.sub(r'^(?:[\w\s]*\W)?typedef\W[^;]*', '', source, flags=re.MULTILINE)
+
+        # add space between parenthese and alphanumeric
         source = re.sub(r'\)(\w)', r') \1', source)
+
+        # remove known attributes slated to be stripped
         if self.c_strippables:
             source = re.sub(r'(^|\W+)(?:' + '|'.join(self.c_strippables) + r')(?=$|\W+)', r'\1', source)
 
+        # scan standalone function pointers and remove them, because they can just be ignored
         source = re.sub(r'\w+\s*\(\s*\*\s*\w+\s*\)\s*\([^)]*\)\s*;', ';', source)
-        source = re.sub(r'([\w\s*]+)\(*\(\s*\*([\w\s*]+)\s*\(([\w\s*,]*)\)\)\s*\(([\w\s*,]*)\)\)*', self._replace_func_ptr, source)
+
+        def _replace_func_ptr(match):
+            functype = f"cmock_{parse_project['module_name']}_func_ptr{len(parse_project['typedefs']) + 1}"
+            parse_project['typedefs'].append(f"typedef {match.group(1).strip()}(*{functype})({match.group(4)});")
+            return f"{functype} {match.group(2).strip()}({match.group(3)});"
+        
+        # scan for functions which return function pointers, because they are a pain
+        source = re.sub(r'([\w\s*]+)\(*\(\s*\*([\w\s*]+)\s*\(([\w\s*,]*)\)\)\s*\(([\w\s*,]*)\)\)*', _replace_func_ptr, source)
 
         source = self.remove_nested_pairs_of_braces(source) if not cpp else source
 
@@ -208,11 +245,6 @@ class CMockHeaderParser:
         src_lines = [line for line in src_lines if line]
 
         return src_lines
-
-    def _replace_func_ptr(self, match):
-        functype = f"cmock_{parse_project['module_name']}_func_ptr{len(parse_project['typedefs']) + 1}"
-        parse_project['typedefs'].append(f"typedef {match.group(1).strip()}(*{functype})({match.group(4)});")
-        return f"{functype} {match.group(2).strip()}({match.group(3)});"
 
     def parse_cpp_functions(self, source):
         funcs = []
@@ -347,16 +379,33 @@ class CMockHeaderParser:
         arg_list = re.sub(r'\s+\*', '*', arg_list)
         arg_list = re.sub(r'\*(\w)', r'* \1', arg_list)
 
-        arg_list = re.sub(r'([\w\s*]+)\(+([\w\s]*)\*[*\s]*([\w\s]*)\s*\)+\s*\(((?:[\w\s*]*,?)*)\s*\)*', self._replace_func_ptr, arg_list)
-        arg_list = re.sub(r'([\w\s*]+)\s+(\w+)\s*\(((?:[\w\s*]*,?)*)\s*\)*', self._replace_func_ptr_shorthand, arg_list)
+        def _replace_func_ptr(match):
+            functype = f"cmock_{parse_project['module_name']}_func_ptr{len(parse_project['typedefs']) + 1}"
+            parse_project['typedefs'].append(f"typedef {match.group(1).strip()}(*{functype})({match.group(4)});")
+            return f"{functype} {match.group(2).strip()}({match.group(3)});"
 
-        arg_list = ', '.join([f"{arg} cmock_arg{c + 1}" if len(arg.split()) < 2 or arg.split()[-1][-1] == '*' or arg.split()[-1] in self.standards else arg for c, arg in enumerate(arg_list.split(r'\s*,\s*'))])
+        arg_list = re.sub(r'([\w\s*]+)\(+([\w\s]*)\*[*\s]*([\w\s]*)\s*\)+\s*\(((?:[\w\s*]*,?)*)\s*\)*', _replace_func_ptr, arg_list)
+
+        def _replace_func_ptr_shorthand(match):
+            functype = f"cmock_{parse_project['module_name']}_func_ptr{len(parse_project['typedefs']) + 1}"
+            parse_project['typedefs'].append(f"typedef {match.group(1).strip()}(*{functype})({match.group(3)});")
+            return f"{functype} {match.group(2).strip()}"
+        
+        arg_list = re.sub(r'([\w\s*]+)\s+(\w+)\s*\(((?:[\w\s*]*,?)*)\s*\)*', _replace_func_ptr_shorthand, arg_list)
+
+        arg_list = self._create_dummy_names(arg_list)
         return arg_list
-
-    def _replace_func_ptr_shorthand(self, match):
-        functype = f"cmock_{parse_project['module_name']}_func_ptr{len(parse_project['typedefs']) + 1}"
-        parse_project['typedefs'].append(f"typedef {match.group(1).strip()}(*{functype})({match.group(3)});")
-        return f"{functype} {match.group(2).strip()}"
+    
+    def _create_dummy_names(self, arg_list):
+        cleaned_args = []
+        keywords_to_remove = ['struct', 'union', 'enum', 'const', 'const*']
+        for c, arg in enumerate(re.split(r'\s*,\s*', arg_list)):
+            parts = [part for part in arg.split() if part not in keywords_to_remove]
+            if len(parts) < 2 or parts[-1][-1] == '*' or parts[-1] in self.standards:
+                cleaned_args.append(f"{arg} cmock_arg{c + 1}")
+            else:
+                cleaned_args.append(arg)
+        return ', '.join(cleaned_args)
 
     def parse_declaration(self, parse_project, declaration, namespace=None, classname=None):
         if namespace is None:
