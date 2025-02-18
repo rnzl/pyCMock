@@ -37,11 +37,11 @@ class CMockConfig:
         ':treat_inlines': ':exclude',  # options: include, exclude
         ':callback_include_count': True,
         ':callback_after_arg_check': False,
-        ':includes': None,
-        ':includes_h_pre_orig_header': None,
-        ':includes_h_post_orig_header': None,
-        ':includes_c_pre_header': None,
-        ':includes_c_post_header': None,
+        ':includes': [],
+        ':includes_h_pre_orig_header': [],
+        ':includes_h_post_orig_header': [],
+        ':includes_c_pre_header': [],
+        ':includes_c_post_header': [],
         ':orig_header_include_fmt': '#include "%s"',
         ':array_size_type': [],
         ':array_size_name': 'size|len',
@@ -88,7 +88,11 @@ class CMockConfig:
         if self.options[':unity_helper_path']:
             self.add_unity_helper_paths_to_post_headers()
 
-        self.options[':plugins'] = list(map(lambda x: str(x).lower(), filter(None, self.options[':plugins'])))
+        # Make sure all plugin names are lowercase and drop Nones
+        self.options[':plugins'] = [plugin.lower() for plugin in self.options[':plugins'] if plugin != None]
+
+        # Make sure every plugin name starts with a colon
+        self.options[':plugins'] = [':' + plugin if plugin[0] != ':' else plugin for plugin in self.options[':plugins']]
 
         if 'ignore' not in self.options[':plugins'] and not self.options[':fail_on_unexpected_calls']:
             raise ValueError("The 'ignore' plugin is required to disable 'fail_on_unexpected_calls'")
