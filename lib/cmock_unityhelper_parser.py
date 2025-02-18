@@ -60,14 +60,14 @@ class CMockUnityHelperParser:
         source = re.sub(r'\/\*.*?\*\/', '', source, flags=re.DOTALL)  # remove block comments
 
         # scan for comparison helpers
-        match_regex = re.compile(r"^\s*#define\s+(UNITY_TEST_ASSERT_EQUAL_(\w+))\s*\(\s*\w+\s*,\s*\w+\s*,\s*\w+\s*,\s*\w+\s*\)")
+        match_regex = re.compile(r"^\s*#define\s+(UNITY_TEST_ASSERT_EQUAL_(\w+))\s*\(\s*\w+\s*,\s*\w+\s*,\s*\w+\s*,\s*\w+\s*\)", re.MULTILINE)
         pairs = match_regex.findall(source)
         for expect, ctype in pairs:
             if '_ARRAY' not in expect:
                 c_types[ctype] = expect
 
         # scan for array variants of those helpers
-        match_regex = re.compile(r"^\s*#define\s+(UNITY_TEST_ASSERT_EQUAL_(\w+_ARRAY))\s*\(\s*\w+\s*,\s*\w+\s*,\s*\w+\s*,\s*\w+\s*,\s*\w+\s*\)")
+        match_regex = re.compile(r"^\s*#define\s+(UNITY_TEST_ASSERT_EQUAL_(\w+_ARRAY))\s*\(\s*\w+\s*,\s*\w+\s*,\s*\w+\s*,\s*\w+\s*,\s*\w+\s*\)", re.MULTILINE)
         pairs = match_regex.findall(source)
         for expect, ctype in pairs:
             c_types[ctype.replace('_ARRAY', '*')] = expect
