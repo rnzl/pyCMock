@@ -61,7 +61,8 @@ class CMockGeneratorPluginIgnoreStateless:
                 f"      return Mock.{function['name']}_FinalReturn;\n"
             )
             if not retval["void?"]:
-                lines += f"  {self.utils.code_assign_argument_quickly(f'Mock.{function['name']}_FinalReturn', retval)}"
+                finalReturn_Name = f"Mock.{function['name']}_FinalReturn"
+                lines += f"  {self.utils.code_assign_argument_quickly(finalReturn_Name, retval)}"
             lines += "    return cmock_call_instance->ReturnVal;\n  }\n"
         return lines
 
