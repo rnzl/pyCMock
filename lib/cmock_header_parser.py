@@ -374,23 +374,54 @@ class CMockHeaderParser:
     def clean_args(self, arg_list, parse_project):
         if arg_list.strip() in self.local_as_void or not arg_list:
             return 'void'
+        
         c = 0
+        # Magically turn brackets into asterisks, also match for parentheses that come from macros
         arg_list = re.sub(r'(\w+)(?:\s*\[[^\[\]]*\])+', r'*\1', arg_list)
+        # Remove space to place asterisks with type (where they belong)
         arg_list = re.sub(r'\s+\*', '*', arg_list)
+        # Pull asterisks away from arg to place asterisks with type (where they belong)
         arg_list = re.sub(r'\*(\w)', r'* \1', arg_list)
 
+        # Scan argument list for function pointers and replace them with custom types
         def _replace_func_ptr(match):
+            nonlocal c
             functype = f"cmock_{parse_project['module_name']}_func_ptr{len(parse_project['typedefs']) + 1}"
-            parse_project['typedefs'].append(f"typedef {match.group(1).strip()}(*{functype})({match.group(4)});")
-            return f"{functype} {match.group(2).strip()}({match.group(3)});"
+            funcret = match.group(1).strip()
+            funcdecl = match.group(2).strip()
+            funcname = match.group(3).strip()
+            funcargs = match.group(4).strip()
+            funconst = ''
+            if 'const' in funcname:
+                funcname = funcname.replace('const', '').strip()
+                funconst = 'const '
+            if funcdecl:
+                funcdecl += ' '
+            parse_project['typedefs'].append(f"typedef {funcret}({funcdecl}*{functype})({funcargs});")
+            if not funcname:
+                funcname = f"cmock_arg{c + 1}"
+                c += 1
+            return f"{functype} {funconst}{funcname}"
 
         arg_list = re.sub(r'([\w\s*]+)\(+([\w\s]*)\*[*\s]*([\w\s]*)\s*\)+\s*\(((?:[\w\s*]*,?)*)\s*\)*', _replace_func_ptr, arg_list)
 
+        # Scan argument list for function pointers with shorthand notation and replace them with custom types
         def _replace_func_ptr_shorthand(match):
+            nonlocal c
             functype = f"cmock_{parse_project['module_name']}_func_ptr{len(parse_project['typedefs']) + 1}"
-            parse_project['typedefs'].append(f"typedef {match.group(1).strip()}(*{functype})({match.group(3)});")
-            return f"{functype} {match.group(2).strip()}"
-        
+            funcret = match.group(1).strip()
+            funcname = match.group(2).strip()
+            funcargs = match.group(3).strip()
+            funconst = ''
+            if 'const' in funcname:
+                funcname = funcname.replace('const', '').strip()
+                funconst = 'const '
+            parse_project['typedefs'].append(f"typedef {funcret}(*{functype})({funcargs});")
+            if not funcname:
+                funcname = f"cmock_arg{c + 1}"
+                c += 1
+            return f"{functype} {funconst}{funcname}"
+
         arg_list = re.sub(r'([\w\s*]+)\s+(\w+)\s*\(((?:[\w\s*]*,?)*)\s*\)*', _replace_func_ptr_shorthand, arg_list)
 
         arg_list = self._create_dummy_names(arg_list)
