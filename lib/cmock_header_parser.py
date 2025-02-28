@@ -253,7 +253,7 @@ class CMockHeaderParser:
         pub = False
         for line in source:
             for item in re.findall(r'(?:(?:\b(?:namespace|class)\s+(?:\S+)\s*)?{)|}', line):
-                if item == '}':
+                if item == '}' and ns: # Make sure ns is not empty
                     ns.pop()
                 else:
                     token = item.strip().replace(r'\s+', ' ')
@@ -319,7 +319,9 @@ class CMockHeaderParser:
 
         if arg_info['const_ptr?']:
             attr_array.append('const')
-            type_array.remove('const')
+            # Remove last occurrence of 'const' in type_array
+            if 'const' in type_array:
+                type_array.pop(len(type_array) - 1 - type_array[::-1].index('const'))
 
         arg_info['modifier'] = ' '.join(attr_array)
         arg_info['type'] = re.sub(r'\s+\*', '*', ' '.join(type_array))
@@ -355,6 +357,7 @@ class CMockHeaderParser:
     def divine_ptr(self, arg):
         if '*' not in arg:
             return False
+        # treat "const char *" and similar as a string, not a pointer
         if re.search(r'(^|\s)(const\s+)?char(\s+const)?\s*\*(?!.*\*)', arg):
             return False
         return True
