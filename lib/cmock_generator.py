@@ -64,7 +64,7 @@ class CMockGenerator:
         }
         self._create_mock_subdir(mock_project)
 
-        # Create Mock he
+        # Create Mock header file
         self._create_mock_header_file(mock_project)
         self._create_mock_source_file(mock_project)
 

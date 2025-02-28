@@ -42,7 +42,7 @@ class CMockHeaderParser:
                 parse_project['functions'].append(func)
                 function_names.append(func['name'])
 
-        parse_project['normalized_source'] = self.transform_inline_functions(source) if self.treat_inlines == 'include' else ''
+        parse_project['normalized_source'] = self.transform_inline_functions(source) if self.treat_inlines == ':include' else ''
 
         return {
             'includes': None,
@@ -162,7 +162,7 @@ class CMockHeaderParser:
 
         # If user wants to mock inline functions,
         # remove the (user specific) inline keywords before removing anything else to avoid missing an inline function
-        if self.treat_inlines == 'include':
+        if self.treat_inlines == ':include':
             for user_format_string in self.inline_function_patterns:
                 source = re.sub(user_format_string, '', source)
 
@@ -218,7 +218,7 @@ class CMockHeaderParser:
 
         source = self.remove_nested_pairs_of_braces(source) if not cpp else source
 
-        if self.treat_inlines == 'include':
+        if self.treat_inlines == ':include':
             source = re.sub(r'\{ \}', ';', source)
 
         source = re.sub(r'\([^)]*\)\s*\{[^}]*\}', ';', source, flags=re.DOTALL)
