@@ -25,14 +25,14 @@ class CMockGeneratorPluginIgnore:
         """
         if function["return"]["void?"]:
             lines = (
-                f"#define {function['name']}_IgnoreAndReturn(cmock_retval) "
+                f"\n#define {function['name']}_IgnoreAndReturn(cmock_retval) "
                 f"TEST_FAIL_MESSAGE(\"{function['name']} requires _Ignore (not AndReturn)\");\n"
                 f"#define {function['name']}_Ignore() {function['name']}_CMockIgnore()\n"
                 f"void {function['name']}_CMockIgnore(void);\n"
             )
         else:
             lines = (
-                f"#define {function['name']}_Ignore() "
+                f"\n#define {function['name']}_Ignore() "
                 f"TEST_FAIL_MESSAGE(\"{function['name']} requires _IgnoreAndReturn\");\n"
                 f"#define {function['name']}_IgnoreAndReturn(cmock_retval) "
                 f"{function['name']}_CMockIgnoreAndReturn(__LINE__, cmock_retval)\n"

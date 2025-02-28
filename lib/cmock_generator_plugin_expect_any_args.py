@@ -22,14 +22,14 @@ class CMockGeneratorPluginExpectAnyArgs:
 
         if function["return"]["void?"]:
             return (
-                f"#define {function['name']}_ExpectAnyArgsAndReturn(cmock_retval) "
+                f"\n#define {function['name']}_ExpectAnyArgsAndReturn(cmock_retval) "
                 f"TEST_FAIL_MESSAGE(\"{function['name']} requires _ExpectAnyArgs (not AndReturn)\");\n"
                 f"#define {function['name']}_ExpectAnyArgs() {function['name']}_CMockExpectAnyArgs(__LINE__)\n"
                 f"void {function['name']}_CMockExpectAnyArgs(UNITY_LINE_TYPE cmock_line);\n"
             )
         else:
             return (
-                f"#define {function['name']}_ExpectAnyArgs() "
+                f"\n#define {function['name']}_ExpectAnyArgs() "
                 f"TEST_FAIL_MESSAGE(\"{function['name']} requires _ExpectAnyArgsAndReturn\");\n"
                 f"#define {function['name']}_ExpectAnyArgsAndReturn(cmock_retval) "
                 f"{function['name']}_CMockExpectAnyArgsAndReturn(__LINE__, cmock_retval)\n"
