@@ -94,7 +94,7 @@ class CMockConfig:
         # Make sure every plugin name starts with a colon
         self.options[':plugins'] = [':' + plugin if plugin[0] != ':' else plugin for plugin in self.options[':plugins']]
 
-        if 'ignore' not in self.options[':plugins'] and not self.options[':fail_on_unexpected_calls']:
+        if ':ignore' not in self.options[':plugins'] and not self.options[':fail_on_unexpected_calls']:
             raise ValueError("The 'ignore' plugin is required to disable 'fail_on_unexpected_calls'")
 
         self.options[':treat_as'] = {**self.standard_treat_as_map(), **self.options[':treat_as']}

@@ -106,7 +106,7 @@ class CMockGenerator:
         self.file_writer.create_subdir(mock_project["folder"])
 
     def _create_mock_header_file(self, mock_project):
-        if self.include_inline == "include":
+        if self.include_inline == ":include":
             self.file_writer.create_file(
                 mock_project["module_name"] + mock_project["module_ext"],
                 self._write_module_inline_content,
@@ -221,7 +221,7 @@ class CMockGenerator:
             self._create_mock_implementation(file, function)
             self._create_mock_interfaces(file, function)
 
-    def _create_source_header_section(self, file, mock_project):
+    def _create_source_header_section(self, file, mock_project, filename=None):
         
         if "folder" in mock_project.keys() and mock_project["folder"] != None:
             header_file = os.path.join(
@@ -240,8 +240,11 @@ class CMockGenerator:
         file.write("#include \"cmock.h\"\n")
         for inc in self.includes_c_pre_header:
             file.write(f"#include {inc}\n")
-        
-        file.write(f"#include \"{self.prefix}{header_file}\"\n")
+
+        if not filename:        
+            file.write(f"#include \"{self.prefix}{header_file}\"\n")
+        else:
+            file.write(f"#include \"{filename}\"\n")
         
         for inc in self.includes_c_post_header:
             file.write(f"#include {inc}\n")
@@ -337,7 +340,7 @@ class CMockGenerator:
             file.write("  if (cmock_call_instance->CallOrder < GlobalVerifyOrder)\n")
             file.write("    UNITY_TEST_FAIL(cmock_line, CMockStringCalledLate);\n")
         file.write(self.plugins.run('mock_implementation', function))
-        file.write("\n  UNITY_CLR_DETAILS();\n")
+        file.write("  UNITY_CLR_DETAILS();\n")
         if not function['return']['void?']:
             file.write("  return cmock_call_instance->ReturnVal;\n")
         file.write("}\n")
@@ -367,7 +370,7 @@ class CMockGenerator:
 
         file.write(f"{decl}\n")
         file.write("{\n")
-        file.write("  /*TODO: Implement Me!*/\n")
+        file.write("  /*TODO: Implement Haha Me!*/\n")
         for arg in function['args']:
             file.write(f"  (void){arg['name']};\n")
         if not function['return']['void?']:
@@ -393,7 +396,7 @@ class CMockGenerator:
         blank_project = mock_project.copy()
         blank_project['parsed_stuff'] = {'functions': []}
         if not existing:
-            self._create_source_header_section(file, blank_project)
+            self._create_source_header_section(file, blank_project, filename=f"{mock_project['module_name']}.h")
         else:
             file.write(existing)
             if existing[-1] != "\n":
