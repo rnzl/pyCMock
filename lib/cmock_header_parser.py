@@ -52,6 +52,7 @@ class CMockHeaderParser:
         }
 
     def remove_comments_from_source(self, source):
+        # remove comments (block and line, in three steps to ensure correct precedence)
         # Remove line comments that comment out the start of blocks
         source = re.sub(r'(?<!\*)\/\/(?:.+\/\*|\*(?:$|[^\/])).*$', '', source, flags=re.MULTILINE)
         # Remove block comments (including nested ones)
@@ -61,6 +62,8 @@ class CMockHeaderParser:
         return source
 
     def remove_nested_pairs_of_braces(self, source):
+        # remove nested pairs of braces because no function declarations will be inside of them (leave outer pair for function definition detection)
+        # TODO: Not sure if this version check is needed. It is used in the original Ruby code.
         if int(re.split(r'\.', re.__version__)[0]) > 1:
             r = r'\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\}'
             source = re.sub(r, '{ }', source, flags=re.DOTALL)
@@ -70,6 +73,10 @@ class CMockHeaderParser:
         return source
 
     def count_number_of_pairs_of_braces_in_function(self, source):
+        """
+        Return the number of pairs of braces/square brackets in the function provided by the user
+        +source+:: String containing the function to be processed
+        """
         is_function_start_found = False
         curr_level = 0
         total_pairs = 0
@@ -82,71 +89,119 @@ class CMockHeaderParser:
             elif c == '}':
                 curr_level -= 1
 
-            if is_function_start_found and curr_level == 0:
+            if is_function_start_found and curr_level == 0: # We reached the end of the inline function body
                 break
 
         if curr_level != 0:
-            total_pairs = 0
+            # Something is fishy about this source, not enough closing braces?
+            # TODO: Should we raise an exception/warining here?
+            total_pairs = 0 
 
         return total_pairs
 
     def transform_inline_functions(self, source):
+        """Transform inline functions to regular functions in the source by the user
+
+        Args:
+            source (_type_): String containing the source to be processed
+
+        Returns:
+            _type_: _description_
+        """
+
         inline_function_regex_formats = []
         square_bracket_pair_regex_format = r'\{[^\{\}]*\}'
 
+        # Convert user provided string patterns to regex
+        # Use word bounderies before and after the user regex to limit matching to actual word iso part of a word    
         for user_format_string in self.inline_function_patterns:
             user_regex = re.compile(user_format_string)
             word_boundary_before_user_regex = r'\b'
             cleanup_spaces_after_user_regex = r' *\b'
             inline_function_regex_formats.append(re.compile(word_boundary_before_user_regex + user_regex.pattern + cleanup_spaces_after_user_regex))
-
+    
+        # let's clean up the encoding in case they've done anything weird with the characters we might find
         source = source.encode('ISO-8859-1').decode('utf-8', errors='replace')
+        
+        # Comments can contain words that will trigger the parser (static|inline|<user_defined_static_keyword>)
         source = self.remove_comments_from_source(source)
-        source = re.sub(r'\s*\\(\n|\s*)', ' ', source, flags=re.DOTALL)
 
+        # smush multiline macros into single line (checking for continuation character at end of line '\')
+        # If the user uses a macro to declare an inline function,
+        # smushing the macros makes it easier to recognize them as a macro and if required,
+        # remove them later on in this function
+        source = re.sub(r'\s*\\(\n|\s*)', ' ', source, flags=re.DOTALL)
+    
+        # Just looking for static|inline in the gsub is a bit too aggressive (functions that are named like this, ...), so we try to be a bit smarter
+        # Instead, look for an inline pattern (f.e. "static inline") and parse it.
+        # Below is a small explanation on how the general mechanism works:
+        #  - Everything before the match should just be copied, we don't want
+        #    to touch anything but the inline functions.
+        #  - Remove the implementation of the inline function (this is enclosed
+        #    in square brackets) and replace it with ";" to complete the
+        #    transformation to normal/non-inline function.
+        #    To ensure proper removal of the function body, we count the number of square-bracket pairs
+        #    and remove the pairs one-by-one.
+        #  - Copy everything after the inline function implementation and start the parsing of the next inline function
+        # There are ofcourse some special cases (inline macro declarations, inline function declarations, ...) which are handled and explained below
         for format in inline_function_regex_formats:
             inspected_source = ''
             regex_matched = False
             while True:
-                inline_function_match = re.search(format, source)
-
-                if inline_function_match is None:
+                inline_function_match = re.search(format, source) # Search for inline function declaration
+    
+                if inline_function_match is None: # No inline functions so nothing to do
+                    # Join pre and post match stripped parts for the next inline function detection regex
                     if regex_matched:
                         source = inspected_source + source
                     break
-
+    
                 regex_matched = True
-
-                if re.search(r'(#define\s*)\Z', inline_function_match.pre_match):
-                    stripped_pre_match = re.sub(r'(#define\s*)\Z', '', inline_function_match.pre_match)
-                    stripped_post_match = re.sub(r'\A(.*\n?)', '', inline_function_match.post_match)
+    
+                pre_match = source[:inline_function_match.start()]
+                post_match = source[inline_function_match.end():]
+                # 1. Determine if we are dealing with a user defined macro to declare inline functions
+                # If the end of the pre-match string is a macro-declaration-like string,
+                # we are dealing with a user defined macro to declare inline functions
+                if re.search(r'(#define\s*)\Z', pre_match):
+                    # Remove the macro from the source
+                    stripped_pre_match = re.sub(r'(#define\s*)\Z', '', pre_match)
+                    stripped_post_match = re.sub(r'\A(.*\n?)', '', post_match)
                     inspected_source += stripped_pre_match
                     source = stripped_post_match
                     continue
 
-                if re.search(self.function_declaration_parse_base_match + r'\s*;', inline_function_match.post_match, flags=re.MULTILINE):
-                    inspected_source += inline_function_match.pre_match
-                    source = inline_function_match.post_match
+                # 2. Determine if we are dealing with an inline function declaration iso function definition
+                # If the start of the post-match string is a function-declaration-like string (something ending with semicolon after the function arguments),
+                # we are dealing with a inline function declaration
+                if re.search(self.function_declaration_parse_base_match + r'\s*;', post_match, flags=re.MULTILINE):
+                    # Only remove the inline part from the function declaration, leaving the function declaration won't do any harm
+                    inspected_source += pre_match
+                    source = post_match
                     continue
 
-                if re.search(self.function_declaration_parse_base_match + r'\s*\{', inline_function_match.post_match, flags=re.MULTILINE):
-                    total_pairs_to_remove = self.count_number_of_pairs_of_braces_in_function(inline_function_match.post_match)
-
-                    if total_pairs_to_remove == 0:
+                # 3. If we get here, we found an inline function declaration AND inline function body.
+                # Remove the function body to transform it into a 'normal' function declaration.    
+                if re.search(self.function_declaration_parse_base_match + r'\s*\{', post_match, flags=re.MULTILINE):
+                    total_pairs_to_remove = self.count_number_of_pairs_of_braces_in_function(post_match)
+    
+                    if total_pairs_to_remove == 0: # Bad source?
                         break
-
-                    inline_function_stripped = inline_function_match.post_match
-
+    
+                    inline_function_stripped = post_match
+    
                     for _ in range(total_pairs_to_remove):
                         inline_function_stripped = re.sub(r'\s*' + square_bracket_pair_regex_format, ';', inline_function_stripped)
-
-                    inspected_source += inline_function_match.pre_match
+    
+                    inspected_source += pre_match
                     source = inline_function_stripped
                     continue
 
-                inspected_source += inline_function_match.pre_match + inline_function_match.group(0)
-                source = inline_function_match.post_match
-
+                # 4. If we get here, it means the regex match, but it is not related to the function (ex. static variable in header)
+                # Leave this code as it is.
+                inspected_source += pre_match + inline_function_match.group(0)
+                source = post_match
+    
         return source
 
     def import_source(self, source, parse_project, cpp=False):
@@ -247,11 +302,24 @@ class CMockHeaderParser:
         return src_lines
 
     def parse_cpp_functions(self, source):
+        """Rudimentary C++ parser
+        Does not handle all situations - e.g.:
+        * A namespace function appears after a class with private members (should be parsed)
+        * Anonymous namespace (shouldn't parse anything - no matter how nested - within it)
+        * A class nested within another class
+
+        Args:
+            source (String): Source to parsed
+
+        Returns:
+            List: List of Functions found in the source
+        """
         funcs = []
 
         ns = []
         pub = False
         for line in source:
+            # Search for namespace, class, opening and closing braces
             for item in re.findall(r'(?:(?:\b(?:namespace|class)\s+(?:\S+)\s*)?{)|}', line):
                 if item == '}' and ns: # Make sure ns is not empty
                     ns.pop()
@@ -269,6 +337,7 @@ class CMockHeaderParser:
             if re.search(r'private:', line) or re.search(r'protected:', line):
                 pub = False
 
+            # ignore non-public and non-static
             if not pub or not re.search(r'\bstatic\b', line):
                 continue
 
@@ -278,10 +347,12 @@ class CMockHeaderParser:
 
             tmp = [item for item in ns if item != '{']
 
+            # Identify class name, if any
             cls = None
             if tmp and tmp[-1].startswith('class '):
                 cls = tmp.pop().replace(r'class (\S+) {', r'\1')
 
+            # Assemble list of namespaces
             for item in tmp:
                 item = item.replace(r'(?:namespace|class) (\S+) {', r'\1')
 
@@ -299,8 +370,19 @@ class CMockHeaderParser:
         return funcs
 
     def parse_type_and_name(self, arg):
-        arg = re.sub(r'(\w)\*', r'\1 *', arg)
-        arg = re.sub(r'\*(\w)', r'* \1', arg)
+        """Split up words and remove known attributes.
+        For pointer types, make sure to remove 'const' only when it applies to the pointer itself, not when it
+        applies to the type pointed to.  For non-pointer types, remove any
+        occurrence of 'const'.
+
+        Args:
+            arg (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        arg = re.sub(r'(\w)\*', r'\1 *', arg) # pull asterisks away from preceding word
+        arg = re.sub(r'\*(\w)', r'* \1', arg) # pull asterisks away from following word
         arg_array = arg.split()
         arg_info = self.divine_ptr_and_const(arg)
         arg_info['name'] = arg_array[-1]
@@ -324,20 +406,22 @@ class CMockHeaderParser:
                 type_array.pop(len(type_array) - 1 - type_array[::-1].index('const'))
 
         arg_info['modifier'] = ' '.join(attr_array)
-        arg_info['type'] = re.sub(r'\s+\*', '*', ' '.join(type_array))
+        arg_info['type'] = re.sub(r'\s+\*', '*', ' '.join(type_array)) # remove space before asterisks
         return arg_info
 
     def parse_args(self, arg_list):
         args = []
         for arg in arg_list.split(','):
             arg = arg.strip()
-            if re.search(r'^\s*((\.\.\.)|(void))\s*$', arg):
+            if re.search(r'^\s*((\.\.\.)|(void))\s*$', arg): # we're done if we reach void by itself or ...
                 return args
 
             arg_info = self.parse_type_and_name(arg)
-            arg_info.pop('modifier', None)
-            arg_info.pop('c_calling_convention', None)
+            arg_info.pop('modifier', None)              # don't care about this
+            arg_info.pop('c_calling_convention', None)  # don't care about this
 
+            # in C, array arguments implicitly degrade to pointers
+            # make the translation explicit here to simplify later logic
             if self.treat_as_array.get(arg_info['type']) and not arg_info['ptr?']:
                 arg_info['type'] = f"{self.treat_as_array[arg_info['type']]}*"
                 if arg_info['const?']:
@@ -346,6 +430,7 @@ class CMockHeaderParser:
 
             args.append(arg_info)
 
+        # Try to find array pair in parameters following this pattern : <type> * <name>, <@array_size_type> <@array_size_name>
         for index, val in enumerate(args):
             next_index = index + 1
             if len(args) > next_index and val['ptr?'] and re.search(self.array_size_name, args[next_index]['name']) and args[next_index]['type'] in self.array_size_type:
@@ -363,6 +448,8 @@ class CMockHeaderParser:
         return True
 
     def divine_const(self, arg):
+        # a non-pointer arg containing "const" is a constant
+        # an arg containing "const" before the last * is a pointer to a constant
         if '*' in arg:
             return bool(re.search(r'(^|\s|\*)const(\s(\w|\s)*)?\*(?!.*\*)', arg))
         return bool(re.search(r'(^|\s)const(\s|$)', arg))
@@ -371,6 +458,8 @@ class CMockHeaderParser:
         divination = {}
         divination['ptr?'] = self.divine_ptr(arg)
         divination['const?'] = self.divine_const(arg)
+
+        # an arg containing "const" after the last * is a constant pointer
         divination['const_ptr?'] = bool(re.search(r'\*(?!.*\*)\s*const(\s|$)', arg))
         return divination
 
@@ -405,10 +494,10 @@ class CMockHeaderParser:
                 funcname = f"cmock_arg{c + 1}"
                 c += 1
             return f"{functype} {funconst}{funcname}"
-
+        
+        # scan argument list for function pointers and replace them with custom types
         arg_list = re.sub(r'([\w\s*]+)\(+([\w\s]*)\*[*\s]*([\w\s]*)\s*\)+\s*\(((?:[\w\s*]*,?)*)\s*\)*', _replace_func_ptr, arg_list)
 
-        # Scan argument list for function pointers with shorthand notation and replace them with custom types
         def _replace_func_ptr_shorthand(match):
             nonlocal c
             functype = f"cmock_{parse_project['module_name']}_func_ptr{len(parse_project['typedefs']) + 1}"
@@ -425,8 +514,10 @@ class CMockHeaderParser:
                 c += 1
             return f"{functype} {funconst}{funcname}"
 
+        # Scan argument list for function pointers with shorthand notation and replace them with custom types
         arg_list = re.sub(r'([\w\s*]+)\s+(\w+)\s*\(((?:[\w\s*]*,?)*)\s*\)*', _replace_func_ptr_shorthand, arg_list)
 
+        # automatically name unnamed arguments (those that only had a type)
         arg_list = self._create_dummy_names(arg_list)
         return arg_list
     
