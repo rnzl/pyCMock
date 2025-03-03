@@ -174,7 +174,7 @@ class CMockHeaderParser:
                 # 2. Determine if we are dealing with an inline function declaration iso function definition
                 # If the start of the post-match string is a function-declaration-like string (something ending with semicolon after the function arguments),
                 # we are dealing with a inline function declaration
-                if re.search(self.function_declaration_parse_base_match + r'\s*;', post_match, flags=re.MULTILINE):
+                if re.search(r'\A' + self.function_declaration_parse_base_match + r'\s*;', post_match, flags=re.MULTILINE): 
                     # Only remove the inline part from the function declaration, leaving the function declaration won't do any harm
                     inspected_source += pre_match
                     source = post_match
@@ -182,7 +182,7 @@ class CMockHeaderParser:
 
                 # 3. If we get here, we found an inline function declaration AND inline function body.
                 # Remove the function body to transform it into a 'normal' function declaration.    
-                if re.search(self.function_declaration_parse_base_match + r'\s*\{', post_match, flags=re.MULTILINE):
+                if re.search(r'\A' + self.function_declaration_parse_base_match + r'\s*\{', post_match, flags=re.MULTILINE):
                     total_pairs_to_remove = self.count_number_of_pairs_of_braces_in_function(post_match)
     
                     if total_pairs_to_remove == 0: # Bad source?
