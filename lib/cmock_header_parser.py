@@ -121,7 +121,7 @@ class CMockHeaderParser:
             inline_function_regex_formats.append(re.compile(word_boundary_before_user_regex + user_regex.pattern + cleanup_spaces_after_user_regex))
     
         # let's clean up the encoding in case they've done anything weird with the characters we might find
-        source = source.encode('ISO-8859-1').decode('utf-8', errors='replace')
+        source = source.encode('ISO-8859-1', errors='ignore').decode('UTF-8', errors='ignore')
         
         # Comments can contain words that will trigger the parser (static|inline|<user_defined_static_keyword>)
         source = self.remove_comments_from_source(source)
@@ -206,7 +206,7 @@ class CMockHeaderParser:
 
     def import_source(self, source, parse_project, cpp=False):
         # let's clean up the encoding in case they've done anything weird with the characters we might find
-        source = source.encode('ISO-8859-1').decode('utf-8', errors='replace')
+        source = source.encode('ISO-8859-1', errors='ignore').decode('UTF-8', errors='ignore')
 
         # void must be void for cmock _ExpectAndReturn calls to process properly, not some weird typedef which equates to void
         # to a certain extent, this action assumes we're chewing on pre-processed header files, otherwise we'll most likely just get stuff from @treat_as_void
